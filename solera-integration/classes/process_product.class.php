@@ -2,11 +2,15 @@
 class DV_process_product {
 
     private $post_type = "occasions";
+    private $lease;
 
     public function __construct() {
 
         // For better performance
         $this->set_server_settings();
+        
+        // Lease API
+        $this->lease = new Morgenlease_API();
         
     }
 
@@ -28,12 +32,6 @@ class DV_process_product {
             $this->set_product_meta( $post_id, $data );
         }
 
-        /*
-        echo "<pre>";
-        print_r($data);
-        echo "</pre>";
-        */
-
     }
 
     public function update_product($data) {
@@ -54,14 +52,9 @@ class DV_process_product {
                 $this->set_product_meta( $post_id, $data );
             }
 
+        } else {
+            $this->add_product($data);
         }
-
-        /*
-        echo "<pre>";
-        print_r($data);
-        echo "</pre>";
-        */
-        
 
     }
 
@@ -82,7 +75,17 @@ class DV_process_product {
         $media = get_attached_media('image', $post_id);
 
         foreach( $media as $id=>$post ) {
+
+            // Delete from Database
             wp_delete_attachment( $id, $force_delete=true );
+
+            // Delete from Server
+            $file_path = get_attached_file( $id );
+
+            if (file_exists($file_path)) {
+                unlink($file_path);
+            }
+
         }
 
     }
@@ -108,27 +111,39 @@ class DV_process_product {
     private function set_product_meta( $post_id, $data ) {
 
         // We take just a few fields
-        $fields = array("voertuignr_hexon", "voertuignr", "klantnummer");
+        $fields = array("voertuignr_hexon", "voertuignr", "klantnummer", "merk", "model", "");
 
         foreach( $fields as $field ) {
             update_post_meta( $post_id, $field, $data[ $field ] );
         }
 
-        update_post_meta( $post_id, 'price', $data['verkoopprijs_particulier']['prijs']['bedrag'] );
+        // Custom field names
+        update_post_meta( $post_id, "brandstof", $data['autotelex']['brandstof'] );
+        update_post_meta( $post_id, "transmission", $data['voertuigsoort'] );
+        update_post_meta( $post_id, "mileage", $data['tellerstand'] );
+        update_post_meta( $post_id, "year", $data['bouwjaar'] );
+
+        // Price
+        $price = $data['verkoopprijs_particulier']['prijs']['bedrag'];
+        update_post_meta( $post_id, 'price', $price );
+
+        // Lease payment 
+        $lease_monthly_sum = $this->calc_lease_payment( $price );
+        update_post_meta( $post_id, 'lease_monthly_payment', $lease_monthly_sum );
 
         // A lot of data, easier to save this way
         update_post_meta( $post_id, 'api_data', $data );
 
     }
 
-    private function get_post_by_code( $code ) {
+    private function calc_lease_payment( $price ) {
 
-        $meta = get_post_meta(1004694);
-        /*
-        echo "<pre>";
-        print_r($meta);
-        echo "</pre>";
-        */
+        $res = $this->lease->get_monthly_payment( $price );
+        return $res['monthly_amount'];
+
+    }
+
+    public function get_post_by_code( $code ) {
 
         $args = array(
             'post_type' => 'occasions', 
@@ -149,12 +164,6 @@ class DV_process_product {
             return $query->posts[0];
         }
 
-        /*
-        echo "<pre>";
-        print_r($query);
-        echo "</pre>";
-        */
-
     }
 
     private function download_images( $post_id, $data ) {
@@ -170,6 +179,9 @@ class DV_process_product {
 
             // Gallery
             $this->set_product_gallery( $post_id, $attachments );
+
+            // Hide images from gallery
+            $this->bulk_media_draft( $post_id );
         }
 
     }
@@ -178,27 +190,47 @@ class DV_process_product {
 
         if( count( $images ) == 0 ) { return false; }
 
-        // Let's slice a bit
-        //$images = array_slice( $images, 0, 1 );
-
+        // Required classes
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
 
         $ids = [];
-        foreach( $images as $image ) {
+        foreach( $images as $key=>$image ) {
+
+            // We don't create extra sizes for gallery images but for Main image
+            if( $key != 0 ) {
+                add_filter( 'intermediate_image_sizes', '__return_empty_array', 999 );
+            }
 
             // Upload the remote image and get the attachment ID
             $attachment_id = media_sideload_image($image['url'], $post_id, '', 'id');
 
             // Check if the image was uploaded successfully
             if (!is_wp_error($attachment_id)) {
+
+                // Set post status to draft, because we don't want to show the images in the media library
+                if( $key != 0 ) {
+                    wp_update_post(array('ID' => $attachment_id, 'post_status' => 'draft'));
+                }
+
                 $ids[] = $attachment_id;
             }
 
         }
 
         return $ids;
+
+    }
+
+    public function bulk_media_draft( $post_id ) {
+
+        $gallery = get_post_meta( $post_id, "gallery", true );
+        if( !is_iterable($gallery) ) { return ; }
+
+        global $wpdb;
+        $query = "UPDATE $wpdb->posts SET post_status = 'draft' WHERE post_type = 'attachment' AND `ID` IN (".implode(',', $gallery).")";
+        $wpdb->query( $query );
 
     }
 

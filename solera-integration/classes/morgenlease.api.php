@@ -1,8 +1,8 @@
 <?php
 class Morgenlease_API {
 
-    private $key = '68938103';
-    private $api_url = 'https://calculator.morgenlease.nl/platform/api/monthly-amount';
+    public $key = get_option('morgenlease_api_key');
+    public $base_url = 'https://calculator.morgenlease.nl/platform/';
 
     public function __construct() {}
 
@@ -15,14 +15,19 @@ class Morgenlease_API {
             'car_price' => $price
         );
 
+        $path = "/api/monthly-amount/";
+        return $this->request( $data, $path );
+
     }
 
-    private function request( $data ) {
+    private function request( $data, $path ) {
+
+        $url = $this->base_url.$path;
 
         $curl = curl_init();
         
         curl_setopt_array($curl, array(
-          CURLOPT_URL => $this->api_url,
+          CURLOPT_URL => $url,
           CURLOPT_RETURNTRANSFER => true,
           CURLOPT_ENCODING => '',
           CURLOPT_MAXREDIRS => 10,
@@ -30,15 +35,16 @@ class Morgenlease_API {
           CURLOPT_FOLLOWLOCATION => true,
           CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
           CURLOPT_CUSTOMREQUEST => 'POST',
-          CURLOPT_POSTFIELDS => ,
-          CURLOPT_HTTPHEADER => array(),
+          CURLOPT_POSTFIELDS => $data,
+          CURLOPT_HTTPHEADER => array(
+            //'Content-Type:application/json',
+          ),
         ));
         
         $response = curl_exec($curl);
-        
         curl_close($curl);
-        echo $response;
-        
+
+        return json_decode( $response, true );
 
     }
 

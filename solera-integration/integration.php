@@ -1,37 +1,26 @@
 <?php
 /**
- * DVcars integration
+ * Solera integration
  *
- * Plugin Name: DVcars integration
+ * Plugin Name: Solera integration
  * Plugin URI:  
- * Description: DVcars integration
+ * Description: Solera integration
  * Version:     1.0
  * Author:      Stanislav Matrosov
- * Author URI:  
- * License:     
- * License URI: 
- * Text Domain: classic-editor
+ * Author URI:  matrosovdream@gmail.com
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Invalid request.' );
 }
 
-require_once('classes/endpoints.class.php');
-require_once('classes/process_xml.class.php');
-require_once('classes/process_product.class.php');
+// defines
+define('DV_PLUGIN_DIR_ABS', WP_PLUGIN_DIR . '/api-cars');
+define('DV_PLUGIN_DIR', plugin_dir_url( __FILE__ ));
 
-add_action('init', 'init22');
-function init22() {
+// Initial class
+require_once('classes/init.class.php');
 
-	if( $_GET['postt'] ) {
 
-		echo "<pre>";
-		print_r( get_post_meta($_GET['postt'], 'api_data', true) );
-		echo "</pre>";
 
-		die();
 
-	}
-
-}

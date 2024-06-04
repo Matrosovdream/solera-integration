@@ -3,10 +3,12 @@ class DV_process_xml {
 
     private $xml_data;
     private $product;
+    private $log;
 
     public function __construct( $xml_data ) {
 
         $this->xml_data = $xml_data;
+        $this->log = new DV_logs();
         $this->product = new DV_process_product();
 
     }
@@ -15,6 +17,9 @@ class DV_process_xml {
 
         $data = $this->parse();
 
+        // Write log
+        $this->write_log( $data );
+        
         // Welke actie moeten we uitvoeren (add/change/delete)
         switch( (string) $data['@attributes']['actie'] ) {
             case 'add':
@@ -27,6 +32,13 @@ class DV_process_xml {
                 $this->product->delete_product( $data );
                 break;
         }
+
+    }
+
+    private function write_log( $data ) {
+
+        $this->log->log_filename = $data['@attributes']['actie']."-cars-".date('d-m-y').".log";
+        $this->log->write_log( json_encode($data) );
 
     }
 

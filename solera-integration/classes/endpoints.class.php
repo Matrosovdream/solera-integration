@@ -15,7 +15,7 @@ class DV_rest extends WP_REST_Controller {
         $namespace = 'occasions/v1';
         $base = 'receive/';
 
-        // http://www.staging.next-move.nl/wp-json/occasions/v1
+        // http://www.staging.next-move.nl/wp-json/occasions/v1/receive/
         register_rest_route( $namespace, '/' . $base, array(
             array(
             'methods'             => WP_REST_Server::EDITABLE,
@@ -35,7 +35,7 @@ class DV_rest extends WP_REST_Controller {
         $dv = new DV_process_xml($xmldoc);
         $dv->process();
         
-        return new WP_REST_Response( array('Product uploaded'), 200 );
+        return new WP_REST_Response( 1, 200 );
 
     }
 
